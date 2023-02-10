@@ -16,7 +16,7 @@ import logging
 import fastdeploy as fd
 import cv2
 import os
-from video_grabber import VideoGrabber, cv_show_images
+from video_grabber import VideoGrabber, cv_show_images, main_multiprocessing
 
 
 def parse_arguments():
@@ -72,56 +72,63 @@ def vis_mot(frame, result, x=0.0, r=None):
     pass
 
 
-logging.basicConfig(
-    format="[%(process)d,%(thread)x,%(name)s]%(asctime)s -%(levelname)s- %(message)s",
-    level=logging.DEBUG,
-)
+def main(_args, _idx=0):
 
-args = parse_arguments()
+    # 配置runtime，加载模型
+    runtime_option = build_option(_args)
+    runtime_option.set_trt_cache_file(".cache.temp.trt")
+    model_file = os.path.join(_args.model, "model.pdmodel")
+    params_file = os.path.join(_args.model, "model.pdiparams")
+    config_file = os.path.join(_args.model, "infer_cfg.yml")
+    model = fd.vision.tracking.PPTracking(model_file, params_file, config_file, runtime_option=runtime_option)
 
-# 配置runtime，加载模型
-runtime_option = build_option(args)
-model_file = os.path.join(args.model, "model.pdmodel")
-params_file = os.path.join(args.model, "model.pdiparams")
-config_file = os.path.join(args.model, "infer_cfg.yml")
-model = fd.vision.tracking.PPTracking(model_file, params_file, config_file, runtime_option=runtime_option)
+    # 初始化轨迹记录器
+    recorder = fd.vision.tracking.TrailRecorder()
+    # 绑定记录器 注意：每次预测时，往trail_recorder里面插入数据，随着预测次数的增加，内存会不断地增长，
+    # 可以通过unbind_recorder()方法来解除绑定
+    model.bind_recorder(recorder)
+    # 预测图片分割结果
+    # cap = cv2.VideoCapture(args.video)
+    vg = VideoGrabber(video_path=_args.video)
 
-# 初始化轨迹记录器
-recorder = fd.vision.tracking.TrailRecorder()
-# 绑定记录器 注意：每次预测时，往trail_recorder里面插入数据，随着预测次数的增加，内存会不断地增长，
-# 可以通过unbind_recorder()方法来解除绑定
-model.bind_recorder(recorder)
-# 预测图片分割结果
-# cap = cv2.VideoCapture(args.video)
-vg = VideoGrabber(video_path=args.video)
-
-# count = 0
-# while True:
-#     _, frame = cap.read()
-#     if frame is None:
-#         break
-vg.start()
-while vg.is_alive:
-    try:
-        frame = vg.get()
-    except RuntimeError as e:
-        break
-    result = model.predict(frame)
-    # count += 1
-    # if count == 10:
-    #     model.unbind_recorder()
-    img = fd.vision.vis_mot(frame, result, 0.0, recorder)
-    # cv2.imshow("video", img)
-    kvs = {"video": img}
-    cv_show_images(kvs)
-    # if cv2.waitKey(30) == ord("q"):
-    try:
-        pollKey(-1)
-    except:
-        break
+    # count = 0
+    # while True:
+    #     _, frame = cap.read()
+    #     if frame is None:
+    #         break
+    vg.start()
+    while vg.is_alive:
+        try:
+            frame = vg.get()
+        except RuntimeError as e:
+            break
+        result = model.predict(frame)
+        # count += 1
+        # if count == 10:
+        #     model.unbind_recorder()
+        img = fd.vision.vis_mot(frame, result, 0.0, recorder)
+        # cv2.imshow("video", img)
+        kvs = {"video": img}
+        cv_show_images(kvs)
+        # if cv2.waitKey(30) == ord("q"):
+        try:
+            pollKey(-1)
+        except:
+            break
+        vg.statistics()
     vg.statistics()
-vg.statistics()
-model.unbind_recorder()
-# cap.release()
-vg.stop()
-cv2.destroyAllWindows()
+    model.unbind_recorder()
+    # cap.release()
+    vg.stop()
+    cv2.destroyAllWindows()
+
+
+if __name__ == "__main__":
+    logging.basicConfig(
+        format="[%(process)d,%(thread)x,%(name)s]%(asctime)s -%(levelname)s- %(message)s",
+        level=logging.DEBUG,
+    )
+
+    args = parse_arguments()
+    main_multiprocessing(main, args, n_workers=2)
+    # main(args)

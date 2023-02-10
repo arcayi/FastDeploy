@@ -63,12 +63,14 @@ def build_option(args):
     return option
 
 
+from fastdeploy.runtime import ModelFormat
+
 if __name__ == "__main__":
     args = parse_arguments()
 
     runtime_option = build_option(args)
     model = fd.vision.faceid.AdaFace(
-        args.model, args.params_file, runtime_option=runtime_option)
+        args.model, args.params_file, runtime_option=runtime_option, model_format=ModelFormat.PADDLE)
 
     face0 = cv2.imread(args.face)
     face1 = cv2.imread(args.face_positive)

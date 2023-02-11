@@ -13,10 +13,13 @@
 # limitations under the License.
 
 import logging
-import fastdeploy as fd
-import cv2
 import os
+
+import cv2
+import numpy as np
 from video_grabber import VideoGrabber, cv_show_images, main_multiprocessing
+
+import fastdeploy as fd
 
 
 def parse_arguments():
@@ -68,8 +71,57 @@ def pollKey(interval):
         #         infer_rt.postprocess_segmentation = draw_okv.value_by_option("draw_segmentation")
 
 
-def vis_mot(frame, result, x=0.0, r=None):
-    pass
+def GetMOTBoxColor(idx: int):
+    idx = idx * 3
+    color = (37 * idx) % 255, (17 * idx) % 255, (29 * idx) % 255
+    return color
+
+
+def vis_mot(img: np.ndarray, results: fd.C.vision.MOTResult, score_threshold: float = 0.0, recorder=None):
+    vis_img = img.copy()
+    im_h, im_w = img.shape[:2]
+    text_scale = max(1, int(im_w / 1600.0))
+    text_thickness = 2.0
+    line_thickness = max(1, int(im_w / 500.0))
+
+    # for (int i = 0; i < results.boxes.size(); ++i) {
+    for i, box in enumerate(results.boxes):
+        pass
+        if results.scores[i] < score_threshold:
+            continue
+        obj_id = results.ids[i]
+        score = results.scores[i]
+        color = GetMOTBoxColor(obj_id)
+        if recorder is not None:
+            id = results.ids[i]
+            # logging.info(f"{recorder.records= }")
+            iter = recorder.records.get(id, None)
+            # if (iter != recorder->records.end()) {
+            if iter is not None:
+                # logging.info(f"{iter= }")
+                for j, xy in enumerate(iter):
+                    center = xy
+                    cv2.circle(vis_img, center, int(text_thickness), color)
+        pt1 = np.array([results.boxes[i][0], results.boxes[i][1]])
+        pt2 = np.array([results.boxes[i][2], results.boxes[i][3]])
+        id_pt = np.array([results.boxes[i][0], results.boxes[i][1] + 10])
+        score_pt = np.array([results.boxes[i][0], results.boxes[i][1] - 10])
+        cv2.rectangle(vis_img, pt1, pt2, color, line_thickness)
+        #     std::ostringstream idoss;
+        #     idoss << std::setiosflags(std::ios::fixed) << std::setprecision(4);
+        #     idoss << obj_id;
+        id_text = f"{obj_id}"
+
+        cv2.putText(vis_img, id_text, id_pt, cv2.FONT_HERSHEY_PLAIN, text_scale, color, int(text_thickness))
+
+        #     std::ostringstream soss;
+        #     soss << std::setiosflags(std::ios::fixed) << std::setprecision(2);
+        #     soss << score;
+        score_text = f"{score:.2f}"
+
+        cv2.putText(vis_img, score_text, score_pt, cv2.FONT_HERSHEY_PLAIN, text_scale, color, int(text_thickness))
+
+    return vis_img
 
 
 def main(_args, _idx=0):
@@ -82,11 +134,12 @@ def main(_args, _idx=0):
     config_file = os.path.join(_args.model, "infer_cfg.yml")
     model = fd.vision.tracking.PPTracking(model_file, params_file, config_file, runtime_option=runtime_option)
 
-    # 初始化轨迹记录器
-    recorder = fd.vision.tracking.TrailRecorder()
-    # 绑定记录器 注意：每次预测时，往trail_recorder里面插入数据，随着预测次数的增加，内存会不断地增长，
-    # 可以通过unbind_recorder()方法来解除绑定
-    model.bind_recorder(recorder)
+    # # 初始化轨迹记录器
+    # recorder = fd.vision.tracking.TrailRecorder()
+    # # 绑定记录器 注意：每次预测时，往trail_recorder里面插入数据，随着预测次数的增加，内存会不断地增长，
+    # # 可以通过unbind_recorder()方法来解除绑定
+    # model.bind_recorder(recorder)
+
     # 预测图片分割结果
     # cap = cv2.VideoCapture(args.video)
     vg = VideoGrabber(video_path=_args.video)
@@ -106,9 +159,16 @@ def main(_args, _idx=0):
         # count += 1
         # if count == 10:
         #     model.unbind_recorder()
-        img = fd.vision.vis_mot(frame, result, 0.0, recorder)
+        # img = fd.vision.vis_mot(frame, result, 0.0, recorder)
+        # img1 = vis_mot(frame, result, 0.0, recorder)
+        img1 = vis_mot(
+            frame,
+            result,
+            0.0,
+        )
         # cv2.imshow("video", img)
-        kvs = {"video": img}
+        # kvs = {"video": img, "vis_mot": img1}
+        kvs = {"vis_mot": img1}
         cv_show_images(kvs)
         # if cv2.waitKey(30) == ord("q"):
         try:
@@ -130,5 +190,5 @@ if __name__ == "__main__":
     )
 
     args = parse_arguments()
-    main_multiprocessing(main, args, n_workers=2)
-    # main(args)
+    # main_multiprocessing(main, args, n_workers=2)
+    main(args)

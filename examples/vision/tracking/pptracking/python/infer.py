@@ -14,6 +14,7 @@
 
 import logging
 import os
+from pathlib import Path
 
 import cv2
 import numpy as np
@@ -128,7 +129,7 @@ def main(_args, _idx=0):
 
     # 配置runtime，加载模型
     runtime_option = build_option(_args)
-    runtime_option.set_trt_cache_file(".cache.temp.trt")
+    runtime_option.set_trt_cache_file(Path.home().joinpath("/.cache.temp.trt").absolute().as_posix())
     model_file = os.path.join(_args.model, "model.pdmodel")
     params_file = os.path.join(_args.model, "model.pdiparams")
     config_file = os.path.join(_args.model, "infer_cfg.yml")

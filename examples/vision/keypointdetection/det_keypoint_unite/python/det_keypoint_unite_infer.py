@@ -98,6 +98,8 @@ pipeline.detection_model_score_threshold = 0.2
 # %%
 %%timeit
 pipeline_result = pipeline.predict(im)
+
+# %%
 print("Paddle TinyPose Result:\n", pipeline_result)
 
 # 预测结果可视化

@@ -98,8 +98,6 @@ pipeline.detection_model_score_threshold = 0.2
 # %%
 %%timeit
 pipeline_result = pipeline.predict(im)
-
-/usr/bin/git -c core.quotepath=false -c color.ui=false stash push --staged -m temp --# %%
 print("Paddle TinyPose Result:\n", pipeline_result)
 
 # 预测结果可视化

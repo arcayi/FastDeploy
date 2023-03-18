@@ -43,3 +43,4 @@ examples/vision/tests_quantize
 fastdeploy/LICENSE
 fastdeploy/ThirdPartyNotices.txt
 FastDeployCSharp.cmake
+examples/vision/keypointdetection/tiny_pose/python/PP_TinyPose_256x192_infer.tgz

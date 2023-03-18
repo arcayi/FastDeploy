@@ -1,6 +1,7 @@
 # %%
 from pathlib import Path
 import fastdeploy as fd
+import numpy as np
 import cv2
 import os
 
@@ -30,6 +31,8 @@ def build_picodet_option(device="gpu", use_trt=True):
         option.use_trt_backend()
         option.set_trt_input_shape("image", [1, 3, 320, 320])
         option.set_trt_input_shape("scale_factor", [1, 2])
+        option.enable_trt_fp16()
+        option.enable_pinned_memory()
     return option
 
 
@@ -45,6 +48,8 @@ def build_tinypose_option(device="gpu", use_trt=True):
     if use_trt:
         option.use_trt_backend()
         option.set_trt_input_shape("image", [1, 3, 256, 192])
+        option.enable_trt_fp16()
+        option.enable_pinned_memory()
     return option
 
 
@@ -96,10 +101,15 @@ pipeline = fd.pipeline.PPTinyPose(det_model, tinypose_model)
 pipeline.detection_model_score_threshold = 0.2
 
 # %%
-%%timeit
+# %%timeit
 pipeline_result = pipeline.predict(im)
 
 # %%
+print(f"{np.array(pipeline_result.keypoints).shape=}, {pipeline_result.keypoints=}")
+print(f"{np.array(pipeline_result.scores).shape=}, {pipeline_result.scores=}")
+# print(f"{pipeline_result.scores=}")
+print(f"{pipeline_result.num_joints=}")
+# print("#person:\n", pipeline_result.keypoints.size()/pipeline_result.num_joints)
 print("Paddle TinyPose Result:\n", pipeline_result)
 
 # 预测结果可视化

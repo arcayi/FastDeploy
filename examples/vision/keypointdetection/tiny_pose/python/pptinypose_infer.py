@@ -1,4 +1,5 @@
 # %%
+from pathlib import Path
 import fastdeploy as fd
 import cv2
 import os
@@ -54,6 +55,10 @@ use_trt = True
 # %%
 # 配置runtime，加载模型
 runtime_option = build_tinypose_option(device, use_trt)
+# cache_path = Path.home() / ".cache" if cache_path is None else Path(cache_path)
+cache_path = Path.home() / ".cache"
+runtime_option.set_trt_cache_file(str(cache_path / f"{Path(tinypose_model_dir).name}.trt"))
+
 tinypose_model = fd.vision.keypointdetection.PPTinyPose(
     tinypose_model_file, tinypose_params_file, tinypose_config_file, runtime_option=runtime_option
 )
@@ -69,6 +74,7 @@ print("Paddle TinyPose Result:\n", tinypose_result)
 
 # 预测结果可视化
 vis_im = fd.vision.vis_keypoint_detection(im, tinypose_result, conf_threshold=0.5)
+cv2.namedWindow("visualized_result.jpg", cv2.WINDOW_NORMAL | cv2.WINDOW_KEEPRATIO)
 cv2.imshow("visualized_result.jpg", vis_im)
 cv2.waitKey(0)
 cv2.destroyAllWindows()

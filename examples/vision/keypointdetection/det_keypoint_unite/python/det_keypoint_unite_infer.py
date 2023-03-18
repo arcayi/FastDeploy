@@ -1,4 +1,5 @@
 # %%
+from pathlib import Path
 import fastdeploy as fd
 import cv2
 import os
@@ -49,7 +50,9 @@ def build_tinypose_option(device="gpu", use_trt=True):
 
 det_model_dir = "PP_PicoDet_V2_S_Pedestrian_320x320_infer"
 tinypose_model_dir = "../../tiny_pose/python/PP_TinyPose_256x192_infer"
-image = "../../000000018491.jpg"
+# image = "../../000000018491.jpg"
+# image = "/workspaces/data/SportAi/跑道/20230304/12/vlcsnap-2023-03-18-14h20m48s705.png"
+image = "/workspaces/data/SportAi/跑道/20230304/12/vlcsnap-2023-03-18-14h27m51s653.png"
 
 device = "gpu"
 use_trt = True
@@ -63,6 +66,9 @@ picodet_config_file = os.path.join(det_model_dir, "infer_cfg.yml")
 # %%
 # 配置runtime，加载PicoDet模型
 runtime_option = build_picodet_option(device, use_trt)
+# cache_path = Path.home() / ".cache" if cache_path is None else Path(cache_path)
+cache_path = Path.home() / ".cache"
+runtime_option.set_trt_cache_file(str(cache_path / f"{Path(det_model_dir).name}.trt"))
 det_model = fd.vision.detection.PicoDet(
     picodet_model_file, picodet_params_file, picodet_config_file, runtime_option=runtime_option
 )
@@ -76,6 +82,9 @@ tinypose_config_file = os.path.join(tinypose_model_dir, "infer_cfg.yml")
 # %%
 # 配置runtime，加载PPTinyPose模型
 runtime_option = build_tinypose_option(device, use_trt)
+# cache_path = Path.home() / ".cache" if cache_path is None else Path(cache_path)
+cache_path = Path.home() / ".cache"
+runtime_option.set_trt_cache_file(str(cache_path / f"{Path(tinypose_model_dir).name}.trt"))
 tinypose_model = fd.vision.keypointdetection.PPTinyPose(
     tinypose_model_file, tinypose_params_file, tinypose_config_file, runtime_option=runtime_option
 )
@@ -84,10 +93,10 @@ tinypose_model = fd.vision.keypointdetection.PPTinyPose(
 # 预测图片检测结果
 im = cv2.imread(image)
 pipeline = fd.pipeline.PPTinyPose(det_model, tinypose_model)
-pipeline.detection_model_score_threshold = 0.5
+pipeline.detection_model_score_threshold = 0.2
 
 # %%
-# %%timeit
+%%timeit
 pipeline_result = pipeline.predict(im)
 
 # %%
@@ -95,6 +104,7 @@ print("Paddle TinyPose Result:\n", pipeline_result)
 
 # 预测结果可视化
 vis_im = fd.vision.vis_keypoint_detection(im, pipeline_result, conf_threshold=0.2)
+cv2.namedWindow("visualized_result.jpg", cv2.WINDOW_NORMAL | cv2.WINDOW_KEEPRATIO)
 cv2.imshow("visualized_result.jpg", vis_im)
 cv2.waitKey(0)
 cv2.destroyAllWindows()

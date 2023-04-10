@@ -55,9 +55,6 @@ def build_tinypose_option(device="gpu", use_trt=True):
 
 det_model_dir = "PP_PicoDet_V2_S_Pedestrian_320x320_infer"
 tinypose_model_dir = "../../tiny_pose/python/PP_TinyPose_256x192_infer"
-# image = "../../000000018491.jpg"
-# image = "/workspaces/data/SportAi/跑道/20230304/12/vlcsnap-2023-03-18-14h20m48s705.png"
-image = "/workspaces/data/SportAi/跑道/20230304/12/vlcsnap-2023-03-18-14h27m51s653.png"
 
 device = "gpu"
 use_trt = True
@@ -96,9 +93,12 @@ tinypose_model = fd.vision.keypointdetection.PPTinyPose(
 
 # %%
 # 预测图片检测结果
+# image = "../../000000018491.jpg"
+# image = "/workspaces/data/SportAi/跑道/20230304/12/vlcsnap-2023-03-18-14h20m48s705.png"
+image = "/workspaces/data/SportAi/跑道/20230304/12/vlcsnap-2023-03-18-14h27m51s653.png"
 im = cv2.imread(image)
 pipeline = fd.pipeline.PPTinyPose(det_model, tinypose_model)
-pipeline.detection_model_score_threshold = 0.2
+pipeline.detection_model_score_threshold = 0.4
 
 # %%
 # %%timeit
@@ -109,8 +109,8 @@ print(f"{np.array(pipeline_result.keypoints).shape=}, {pipeline_result.keypoints
 print(f"{np.array(pipeline_result.scores).shape=}, {pipeline_result.scores=}")
 # print(f"{pipeline_result.scores=}")
 print(f"{pipeline_result.num_joints=}")
-# print("#person:\n", pipeline_result.keypoints.size()/pipeline_result.num_joints)
-print("Paddle TinyPose Result:\n", pipeline_result)
+print("#person:\n", np.array(pipeline_result.scores).shape[0] / pipeline_result.num_joints)
+# print("Paddle TinyPose Result:\n", pipeline_result)
 
 # 预测结果可视化
 vis_im = fd.vision.vis_keypoint_detection(im, pipeline_result, conf_threshold=0.2)

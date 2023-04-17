@@ -46,3 +46,4 @@ FastDeployCSharp.cmake
 
 examples/vision/keypointdetection/tiny_pose/python/PP_TinyPose_256x192_infer.tgz
 build_mine/
+pre-built/

@@ -17,31 +17,36 @@ import os
 import sys
 import platform
 
+
+__logger = logging.getLogger("fastdeploy")
+
 # Create a symbol link to tensorrt library.
-trt_directory = os.path.join(
-    os.path.dirname(os.path.abspath(__file__)),
-    "libs/third_libs/tensorrt/lib/")
+trt_directory = os.path.join(os.path.dirname(os.path.abspath(__file__)), "libs/third_libs/tensorrt/lib/")
 if os.name != "nt" and os.path.exists(trt_directory):
-    logging.basicConfig(level=logging.INFO)
+    # logging.basicConfig(level=logging.INFO)
+    __logger.setLevel(level=logging.INFO)
     for trt_lib in [
-            "libnvcaffe_parser.so", "libnvinfer_plugin.so", "libnvinfer.so",
-            "libnvonnxparser.so", "libnvparsers.so"
+        "libnvcaffe_parser.so",
+        "libnvinfer_plugin.so",
+        "libnvinfer.so",
+        "libnvonnxparser.so",
+        "libnvparsers.so",
     ]:
         dst = os.path.join(trt_directory, trt_lib)
         src = os.path.join(trt_directory, trt_lib + ".8")
         if not os.path.exists(dst):
             try:
                 os.symlink(src, dst)
-                logging.info(
-                    f"Create a symbolic link pointing to {src} named {dst}.")
+                __logger.info(f"Create a symbolic link pointing to {src} named {dst}.")
             except OSError as e:
-                logging.warning(
+                __logger.warning(
                     f"Failed to create a symbolic link pointing to {src} by an unprivileged user. "
                     "It may failed when you use Paddle TensorRT backend. "
                     "Please use administator privilege to import fastdeploy at first time."
                 )
                 break
-    logging.basicConfig(level=logging.NOTSET)
+    # logging.basicConfig(level=logging.NOTSET)
+    __logger.setLevel(level=logging.NOTSET)
 
 from .code_version import version, git_version, extra_version_info
 from .code_version import enable_trt_backend, enable_paddle_backend, with_gpu
@@ -58,12 +63,11 @@ def get_paddle_version():
     paddle_version = ""
     try:
         import pkg_resources
-        paddle_version = pkg_resources.require("paddlepaddle-gpu")[
-            0].version.split(".post")[0]
+
+        paddle_version = pkg_resources.require("paddlepaddle-gpu")[0].version.split(".post")[0]
     except:
         try:
-            paddle_version = pkg_resources.require("paddlepaddle")[
-                0].version.split(".post")[0]
+            paddle_version = pkg_resources.require("paddlepaddle")[0].version.split(".post")[0]
         except:
             pass
     return paddle_version
@@ -72,13 +76,13 @@ def get_paddle_version():
 def should_import_paddle():
     if ("paddle2.4" in extra_version_info) or ("post24" in extra_version_info):
         paddle_version = get_paddle_version()
-        if paddle_version != "" and paddle_version <= '2.4.2' and paddle_version != "0.0.0":
+        if paddle_version != "" and paddle_version <= "2.4.2" and paddle_version != "0.0.0":
             return True
     return False
 
 
 def should_set_tensorrt():
-    if with_gpu == 'ON' and enable_paddle_backend == 'ON' and enable_trt_backend == 'ON':
+    if with_gpu == "ON" and enable_paddle_backend == "ON" and enable_trt_backend == "ON":
         return True
     return False
 
@@ -86,9 +90,9 @@ def should_set_tensorrt():
 def tensorrt_is_avaliable():
     # Note(qiuyanjun): Only support linux now.
     found_trt_lib = False
-    if ('linux' in sys_platform) and ('LD_LIBRARY_PATH' in os.environ.keys()):
-        for lib_path in os.environ['LD_LIBRARY_PATH'].split(':'):
-            if os.path.exists(os.path.join(lib_path, 'libnvinfer.so')):
+    if ("linux" in sys_platform) and ("LD_LIBRARY_PATH" in os.environ.keys()):
+        for lib_path in os.environ["LD_LIBRARY_PATH"].split(":"):
+            if os.path.exists(os.path.join(lib_path, "libnvinfer.so")):
                 found_trt_lib = True
                 break
     return found_trt_lib
@@ -103,16 +107,17 @@ try:
     if "linux" in sys_platform:
         if should_import_paddle():
             import paddle  # need import paddle first for paddle2.4.x
+
             # check whether tensorrt in LD_LIBRARY_PATH for fastdeploy
             if should_set_tensorrt() and (not tensorrt_is_avaliable()):
                 if os.path.exists(trt_directory):
-                    logging.info(
+                    __logger.info(
                         "\n[WARNING] Can not find TensorRT lib in LD_LIBRARY_PATH for FastDeploy! \
             \n[WARNING] Please export [ YOUR CUSTOM TensorRT ] lib path to LD_LIBRARY_PATH first, or run the command: \
             \n[WARNING] Linux: 'export LD_LIBRARY_PATH=$(python -c 'from fastdeploy import trt_directory; print(trt_directory)'):$LD_LIBRARY_PATH'"
                     )
                 else:
-                    logging.info(
+                    __logger.info(
                         "\n[WARNING] Can not find TensorRT lib in LD_LIBRARY_PATH for FastDeploy! \
             \n[WARNING] Please export [YOUR CUSTOM TensorRT] lib path to LD_LIBRARY_PATH first."
                     )
@@ -130,7 +135,8 @@ from .c_lib_wrap import (
     ModelFormat,
     is_built_with_paddle,
     is_built_with_trt,
-    get_default_cuda_directory, )
+    get_default_cuda_directory,
+)
 
 
 def set_logger(enable_info=True, enable_warning=True):
@@ -140,6 +146,7 @@ def set_logger(enable_info=True, enable_warning=True):
     :param enable_warning: (boolean)Whether to print out log level of WARNING, recommend to set to True
     """
     from .c_lib_wrap import set_logger
+
     set_logger(enable_info, enable_warning)
 
 

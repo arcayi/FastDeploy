@@ -119,7 +119,7 @@ else()
     endif()
     set(PADDLEINFERENCE_URL "${PADDLEINFERENCE_URL_BASE}${PADDLEINFERENCE_FILE}")
 
-  endif(PADDLEINFERENCE_URL)
+  endif()
   
   ExternalProject_Add(
     ${PADDLEINFERENCE_PROJECT}

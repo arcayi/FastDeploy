@@ -39,6 +39,17 @@ cd ../
 docker build -t paddlepaddle/fastdeploy:1.0.6-gpu-cuda11.2-trt8.4-21.10 -f serving/Dockerfile_CUDA_11_2 .
 ```
 
+**NOW: 比如在ubuntu 20.04，cuda12.1环境下制作基于FastDeploy v1.0.7.1的GPU镜像**
+```
+# 进入serving目录执行脚本编译fastdeploy和服务化的backend
+cd serving
+http_proxy=http://192.168.1.10:8889 https_proxy=http://192.168.1.10:8889  ./scripts/build.sh
+
+# 退出到FastDeploy主目录，制作镜像
+cd ../
+docker build -t paddlepaddle/fastdeploy:1.0.7.1-gpu-cuda12.1-trt8.6-23.04 -f serving/Dockerfile_CUDA_12_1_TRT_8_6 .
+```
+
 ### 制作CPU镜像
 
 ```

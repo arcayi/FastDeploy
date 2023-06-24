@@ -58,3 +58,5 @@ pre-built/
 examples/vision/detection/yolov8/yolov8l.onnx
 examples/vision/detection/yolov8/yolov8m.onnx
 examples/vision/detection/yolov8/yolov8x.onnx
+serving/cmake-3.26.4-linux-x86_64/
+serving/TensorRT-8.6.1.6/

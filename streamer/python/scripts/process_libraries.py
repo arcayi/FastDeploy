@@ -33,6 +33,10 @@ def process_on_linux(current_dir):
 
     cmake_build_dir = os.path.join(current_dir, ".setuptools-cmake-build")
 
+    patchelf_bin_path = os.path.join(cmake_build_dir, "third_libs/patchelf/bin/patchelf")
+    if not os.path.exists(patchelf_bin_path):
+        patchelf_bin_path = "patchelf"
+        
     for lib in fd_libs:
         command = "{} --set-rpath '{}' {}".format(patchelf_bin_path, ":".join(rpaths), lib)
         if platform.machine() != 'sw_64' and platform.machine() != 'mips64':

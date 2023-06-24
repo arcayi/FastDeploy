@@ -47,3 +47,6 @@ FastDeployCSharp.cmake
 examples/vision/keypointdetection/tiny_pose/python/PP_TinyPose_256x192_infer.tgz
 build_mine/
 pre-built/
+examples/vision/detection/yolov8/yolov8l.onnx
+examples/vision/detection/yolov8/yolov8m.onnx
+examples/vision/detection/yolov8/yolov8x.onnx

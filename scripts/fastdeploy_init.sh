@@ -1,7 +1,7 @@
 # source this file to import libraries
 
 PLATFORM=`uname`
-FASTDEPLOY_LIBRARY_PATH=${BASH_SOURCE}
+FASTDEPLOY_LIBRARY_PATH=$(dirname "${BASH_SOURCE}")
 if [ "$PLATFORM" == "Linux" ];then
     FASTDEPLOY_LIBRARY_PATH=`readlink -f ${FASTDEPLOY_LIBRARY_PATH}`
 fi

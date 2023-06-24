@@ -226,7 +226,8 @@ class RuntimeOption:
                       autotune_file="",
                       precision="int16",
                       adaptive_seqlen=False,
-                      enable_multi_stream=False):
+                      enable_multi_stream=False,
+                      gm_default_size=0):
         """Inference with KunlunXin XPU
 
         :param device_id: (int)The index of KunlunXin XPU will be used for inference, default 0
@@ -241,10 +242,11 @@ class RuntimeOption:
         :param precision: (str)Calculation accuracy of multi_encoder
         :param adaptive_seqlen: (bool)adaptive_seqlen Is the input of multi_encoder variable length
         :param enable_multi_stream: (bool)Whether to enable the multi stream of KunlunXin XPU.
+        :param gm_default_size The default size of context global memory of KunlunXin XPU.
         """
-        return self._option.use_kunlunxin(device_id, l3_workspace_size, locked,
-                                          autotune, autotune_file, precision,
-                                          adaptive_seqlen, enable_multi_stream)
+        return self._option.use_kunlunxin(
+            device_id, l3_workspace_size, locked, autotune, autotune_file,
+            precision, adaptive_seqlen, enable_multi_stream, gm_default_size)
 
     def use_cpu(self):
         """Inference with CPU
@@ -265,6 +267,16 @@ class RuntimeOption:
         """Inference with Huawei Ascend NPU
         """
         return self._option.use_ascend()
+
+    def disable_valid_backend_check(self):
+        """ Disable checking validity of backend during inference
+        """
+        return self._option.disable_valid_backend_check()
+
+    def enable_valid_backend_check(self):
+        """Enable checking validity of backend during inference
+        """
+        return self._option.enable_valid_backend_check()
 
     def set_cpu_thread_num(self, thread_num=-1):
         """Set number of threads if inference with CPU
@@ -302,6 +314,11 @@ class RuntimeOption:
         """Use ONNX Runtime backend, support inference Paddle/ONNX model on CPU/Nvidia GPU.
         """
         return self._option.use_ort_backend()
+
+    def use_tvm_backend(self):
+        """Use TVM Runtime backend, support inference TVM model on CPU.
+        """
+        return self._option.use_tvm_backend()
 
     def use_trt_backend(self):
         """Use TensorRT backend, support inference Paddle/ONNX model on Nvidia GPU.
@@ -483,6 +500,29 @@ class RuntimeOption:
             assert opt_shape is not None and max_shape is not None, "Set min_shape only, or set min_shape, opt_shape, max_shape both."
         return self._option.trt_option.set_shape(tensor_name, min_shape,
                                                  opt_shape, max_shape)
+
+    def set_trt_input_data(self,
+                           tensor_name,
+                           min_input_data,
+                           opt_input_data=None,
+                           max_input_data=None):
+        """Set input data while using TensorRT backend with loadding a model contains dynamic input shape.
+
+        :param tensor_name: (str)Name of input which has dynamic shape
+        :param min_input_data: (list of int)Input data for Minimum shape of the input.
+        :param opt_input_data: (list of int)Input data for Optimize shape of the input, if set to None, it will keep same with min_input_data
+        :param max_input_data: (list of int)Input data for Maximum shape of the input, if set to None, it will keep same with the min_input_data
+        """
+        logging.warning(
+            "`RuntimeOption.set_trt_input_data` will be deprecated in v1.2.0, please use `RuntimeOption.trt_option.set_input_data()` instead."
+        )
+        if opt_input_data is None and max_input_data is None:
+            opt_input_data = min_input_data
+            opt_input_data = min_input_data
+        else:
+            assert opt_input_data is not None and max_input_data is not None, "Set min_input_data only, or set min_input_data, opt_input_data, max_input_data both."
+        return self._option.trt_option.set_input_data(
+            tensor_name, min_input_data, opt_input_data, max_input_data)
 
     def set_trt_cache_file(self, cache_file_path):
         """Set a cache file path while using TensorRT backend. While loading a Paddle/ONNX model with set_trt_cache_file("./tensorrt_cache/model.trt"), if file `./tensorrt_cache/model.trt` exists, it will skip building tensorrt engine and load the cache file directly; if file `./tensorrt_cache/model.trt` doesn't exist, it will building tensorrt engine and save the engine as binary string to the cache file.

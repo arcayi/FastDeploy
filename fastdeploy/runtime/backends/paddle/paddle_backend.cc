@@ -23,10 +23,34 @@ namespace fastdeploy {
 void PaddleBackend::BuildOption(const PaddleBackendOption& option) {
   option_ = option;
   if (option.device == Device::GPU) {
-    config_.EnableUseGpu(option.gpu_mem_init_size, option.device_id);
+
+    auto inference_precision = paddle_infer::PrecisionType::kFloat32;
+    if (option_.inference_precision == "float32"){
+      FDINFO << "Will inference_precision float32" << std::endl;
+      inference_precision = paddle_infer::PrecisionType::kFloat32;
+    } else if (option_.inference_precision == "float16"){
+      FDINFO << "Will inference_precision float16" <<std::endl;
+      inference_precision = paddle_infer::PrecisionType::kHalf;
+    } else if (option_.inference_precision == "bfloat16"){
+      FDINFO << "Will inference_precision bfloat16" << std::endl;
+      inference_precision = paddle_infer::PrecisionType::kBf16;
+    } else if (option_.inference_precision == "int8"){
+      FDINFO << "Will inference_precision int8" << std::endl;
+      inference_precision = paddle_infer::PrecisionType::kInt8;
+    } else {
+      FDERROR << "paddle inference only support precision in float32," 
+              << " float16, bfloat16 and int8" << std::endl;
+    }
+    config_.Exp_DisableMixedPrecisionOps({"feed","fetch"});
+    config_.EnableUseGpu(option.gpu_mem_init_size, option.device_id, inference_precision);
+    // config_.EnableUseGpu(option.gpu_mem_init_size, option.device_id);
     if (option_.switch_ir_debug) {
       FDINFO << "Will Enable ir_debug for Paddle Backend." << std::endl;
       config_.SwitchIrDebug();
+    }
+    if (option_.enable_inference_cutlass){
+      FDINFO << "Will enable_inference_cutlass" << std::endl;
+      config_.Exp_EnableUseCutlass();
     }
     if (option_.external_stream_) {
       FDINFO << "Will use external stream for Paddle Backend." << std::endl;
@@ -78,9 +102,31 @@ void PaddleBackend::BuildOption(const PaddleBackendOption& option) {
                          option.ipu_option.ipu_available_memory_proportion,
                          option.ipu_option.ipu_enable_half_partial);
 #else
-    FDWARNING << "The FastDeploy is not compiled with IPU backend, so will "
+    FDWARNING << "The FastDeploy is not compiled with IPU device, so will "
                  "fallback to CPU with Paddle Inference Backend."
               << std::endl;
+#endif
+  } else if (option.device == Device::KUNLUNXIN) {
+#ifdef WITH_KUNLUNXIN
+    // Note(qiuyanjun): For Paddle XPU L3 Cache, please set
+    // export XPU_PADDLE_L3_SIZE=67104768 (XPU R200)
+    // export FLAGS_fuse_multi_transformer_quant_type="float"
+    config_.EnableXpu(option.xpu_option.kunlunxin_l3_workspace_size,
+                      option.xpu_option.kunlunxin_locked,
+                      option.xpu_option.kunlunxin_autotune,
+                      option.xpu_option.kunlunxin_autotune_file,
+                      option.xpu_option.kunlunxin_precision,
+                      option.xpu_option.kunlunxin_adaptive_seqlen,
+                      option.xpu_option.kunlunxin_enable_multi_stream);
+    config_.SetXpuConfig(
+        option.xpu_option.kunlunxin_quant_post_dynamic_weight_bits,
+        option.xpu_option.kunlunxin_quant_post_dynamic_op_types);
+    config_.SetXpuDeviceId(option.xpu_option.kunlunxin_device_id);
+#else
+    FDWARNING
+        << "The FastDeploy is not compiled with KUNLUNXIN device, so will "
+           "fallback to CPU with Paddle Inference Backend."
+        << std::endl;
 #endif
   } else {
     config_.DisableGpu();
@@ -89,6 +135,7 @@ void PaddleBackend::BuildOption(const PaddleBackendOption& option) {
       config_.SetMkldnnCacheCapacity(option.mkldnn_cache_size);
     }
   }
+
   if (!option.enable_log_info) {
     config_.DisableGlogInfo();
   }
@@ -97,6 +144,9 @@ void PaddleBackend::BuildOption(const PaddleBackendOption& option) {
   } else {
     config_.SetCpuMathLibraryNumThreads(option.cpu_thread_num);
   }
+  // Note: SwitchIrOptim is enabled by default for paddle inference
+  // backend. So, we don't need to set it manually.
+  // config_.SwitchIrOptim(option.switch_ir_optimize);
 }
 
 bool PaddleBackend::Init(const RuntimeOption& runtime_option) {
@@ -106,6 +156,7 @@ bool PaddleBackend::Init(const RuntimeOption& runtime_option) {
   }
 
   auto option = runtime_option;
+  // Collect basic paddle inference option and trt option.
   option.paddle_infer_option.model_file = runtime_option.model_file;
   option.paddle_infer_option.params_file = runtime_option.params_file;
   option.paddle_infer_option.model_from_memory_ =
@@ -117,6 +168,10 @@ bool PaddleBackend::Init(const RuntimeOption& runtime_option) {
   option.paddle_infer_option.external_stream_ = runtime_option.external_stream_;
   option.paddle_infer_option.trt_option = runtime_option.trt_option;
   option.paddle_infer_option.trt_option.gpu_id = runtime_option.device_id;
+  // Note(qiuyanjun): For Ipu option and XPU option, please check the
+  // details of RuntimeOption::UseIpu() and RuntimeOption::UseKunlunXin().
+  // Futhermore, please check paddle_infer_option.SetIpuConfig() and
+  // paddle_infer_option.SetXpuConfig() for more details of extra configs.
   return InitFromPaddle(option.model_file, option.params_file,
                         option.model_from_memory_, option.paddle_infer_option);
 }
@@ -140,7 +195,6 @@ bool PaddleBackend::InitFromPaddle(const std::string& model,
     config_.EnableMemoryOptim();
   }
   BuildOption(option);
-
   // The input/output information get from predictor is not right, use
   // PaddleReader instead now
   std::string model_content = model;
@@ -148,11 +202,8 @@ bool PaddleBackend::InitFromPaddle(const std::string& model,
     FDASSERT(ReadBinaryFromFile(model, &model_content),
              "Failed to read file %s.", model.c_str());
   }
-  auto reader =
-      paddle2onnx::PaddleReader(model_content.c_str(), model_content.size());
-  // If it's a quantized model, and use cpu with mkldnn, automaticaly switch to
-  // int8 mode
-  if (reader.is_quantize_model) {
+
+  if (option.is_quantize_model) {
     if (option.device == Device::GPU) {
       FDWARNING << "The loaded model is a quantized model, while inference on "
                    "GPU, please use TensorRT backend to get better performance."
@@ -183,26 +234,6 @@ bool PaddleBackend::InitFromPaddle(const std::string& model,
                 << std::endl;
     }
   }
-
-  inputs_desc_.resize(reader.num_inputs);
-  for (int i = 0; i < reader.num_inputs; ++i) {
-    std::string name(reader.inputs[i].name);
-    std::vector<int64_t> shape(reader.inputs[i].shape,
-                               reader.inputs[i].shape + reader.inputs[i].rank);
-    inputs_desc_[i].name = name;
-    inputs_desc_[i].shape.assign(shape.begin(), shape.end());
-    inputs_desc_[i].dtype = ReaderDataTypeToFD(reader.inputs[i].dtype);
-  }
-  outputs_desc_.resize(reader.num_outputs);
-  for (int i = 0; i < reader.num_outputs; ++i) {
-    std::string name(reader.outputs[i].name);
-    std::vector<int64_t> shape(
-        reader.outputs[i].shape,
-        reader.outputs[i].shape + reader.outputs[i].rank);
-    outputs_desc_[i].name = name;
-    outputs_desc_[i].shape.assign(shape.begin(), shape.end());
-    outputs_desc_[i].dtype = ReaderDataTypeToFD(reader.outputs[i].dtype);
-  }
   if (option.collect_trt_shape) {
     // Set the shape info file.
     std::string curr_model_dir = "./";
@@ -226,10 +257,17 @@ bool PaddleBackend::InitFromPaddle(const std::string& model,
       std::map<std::string, std::vector<int>> min_shape;
       std::map<std::string, std::vector<int>> opt_shape;
       GetDynamicShapeFromOption(option, &max_shape, &min_shape, &opt_shape);
+      std::map<std::string, std::vector<float>> max_input_data;
+      std::map<std::string, std::vector<float>> min_input_data;
+      std::map<std::string, std::vector<float>> opt_input_data;
+      if (!option.trt_option.min_input_data.empty()) {
+        GetInputDataFromOption(option, &max_input_data, &min_input_data,
+                               &opt_input_data);
+      }
       // Need to run once to get the shape range info file.
-      CollectShapeRun(predictor_tmp.get(), max_shape);
-      CollectShapeRun(predictor_tmp.get(), min_shape);
-      CollectShapeRun(predictor_tmp.get(), opt_shape);
+      CollectShapeRun(predictor_tmp.get(), max_shape, max_input_data);
+      CollectShapeRun(predictor_tmp.get(), min_shape, min_input_data);
+      CollectShapeRun(predictor_tmp.get(), opt_shape, min_input_data);
       FDINFO << "Finish generating shape range info file." << std::endl;
     }
     FDINFO << "Start loading shape range info file " << shape_range_info
@@ -245,7 +283,44 @@ bool PaddleBackend::InitFromPaddle(const std::string& model,
       pass_builder->DeletePass(option.delete_pass_names[i]);
     }
   }
+  if (option.enable_log_info){
+    FDINFO << "Finish paddle inference config with summary as: "
+           << std::endl << config_.Summary() <<std::endl;
+  }
   predictor_ = paddle_infer::CreatePredictor(config_);
+  auto input_names = predictor_->GetInputNames();
+  auto output_names = predictor_->GetOutputNames();
+  auto input_dtypes = predictor_->GetInputTypes();
+  auto output_dtypes = predictor_->GetOutputTypes();
+  auto input_shapes = predictor_->GetInputTensorShape();
+  auto output_shapes = predictor_->GetOutputTensorShape();
+
+  inputs_desc_.resize(input_names.size());
+  for (int i = 0; i < input_names.size(); ++i) {
+    inputs_desc_[i].name = input_names[i];
+    auto iter = input_shapes.find(inputs_desc_[i].name);
+    FDASSERT(iter != input_shapes.end(), "Cannot find shape for input %s.",
+             inputs_desc_[i].name.c_str());
+    inputs_desc_[i].shape.assign(iter->second.begin(), iter->second.end());
+    auto iter1 = input_dtypes.find(inputs_desc_[i].name);
+    FDASSERT(iter1 != input_dtypes.end(), "Cannot find data type for input %s.",
+             inputs_desc_[i].name.c_str());
+    inputs_desc_[i].dtype = PaddleDataTypeToFD(iter1->second);
+  }
+  outputs_desc_.resize(output_names.size());
+  for (int i = 0; i < output_names.size(); ++i) {
+    outputs_desc_[i].name = output_names[i];
+    auto iter = output_shapes.find(outputs_desc_[i].name);
+    FDASSERT(iter != output_shapes.end(), "Cannot find shape for output %s.",
+             outputs_desc_[i].name.c_str());
+    outputs_desc_[i].shape.assign(iter->second.begin(), iter->second.end());
+    auto iter1 = output_dtypes.find(outputs_desc_[i].name);
+    FDASSERT(iter1 != output_dtypes.end(),
+             "Cannot find data type for output %s.",
+             outputs_desc_[i].name.c_str());
+    outputs_desc_[i].dtype = PaddleDataTypeToFD(iter1->second);
+  }
+
   initialized_ = true;
   return true;
 }
@@ -289,22 +364,22 @@ bool PaddleBackend::Infer(std::vector<FDTensor>& inputs,
     ShareTensorFromFDTensor(handle.get(), inputs[i]);
   }
   // prebinded output only support for GPU
-  if (!copy_to_fd) {
-    for (size_t i = 0; i < (*outputs).size(); ++i) {
-      auto output_name = (*outputs)[i].name;
-      // if a output is not prebinded,
-      // the name of output is expected to be empty.
-      // We skip here
-      if (output_name.empty()) {
-        continue;
-      }
-      // Record the prebinded output_name.
-      // Those outputs do not need PaddleTensorToFDTensor
-      // after predictor_.Run()
-      auto handle = predictor_->GetOutputHandle(output_name);
-      ShareOutTensorFromFDTensor(handle.get(), (*outputs)[i]);
-    }
-  }
+  // if (!copy_to_fd) {
+  //   for (size_t i = 0; i < (*outputs).size(); ++i) {
+  //     auto output_name = (*outputs)[i].name;
+  //     // if a output is not prebinded,
+  //     // the name of output is expected to be empty.
+  //     // We skip here
+  //     if (output_name.empty()) {
+  //       continue;
+  //     }
+  //     // Record the prebinded output_name.
+  //     // Those outputs do not need PaddleTensorToFDTensor
+  //     // after predictor_.Run()
+  //     auto handle = predictor_->GetOutputHandle(output_name);
+  //     ShareOutTensorFromFDTensor(handle.get(), (*outputs)[i]);
+  //   }
+  // }
 
   RUNTIME_PROFILE_LOOP_BEGIN(1)
   predictor_->Run();
@@ -400,9 +475,33 @@ void PaddleBackend::GetDynamicShapeFromOption(
   }
 }
 
+void PaddleBackend::GetInputDataFromOption(
+    const PaddleBackendOption& option,
+    std::map<std::string, std::vector<float>>* max_input_data,
+    std::map<std::string, std::vector<float>>* min_input_data,
+    std::map<std::string, std::vector<float>>* opt_input_data) const {
+  for (const auto& item : option.trt_option.min_input_data) {
+    auto max_iter = option.trt_option.max_input_data.find(item.first);
+    auto opt_iter = option.trt_option.opt_input_data.find(item.first);
+    FDASSERT(max_iter != option.trt_option.max_input_data.end(),
+             "Cannot find %s in TrtBackendOption::min_input_data.",
+             item.first.c_str());
+    FDASSERT(opt_iter != option.trt_option.opt_input_data.end(),
+             "Cannot find %s in TrtBackendOption::opt_input_data.",
+             item.first.c_str());
+    (*max_input_data)[item.first].assign(max_iter->second.begin(),
+                                         max_iter->second.end());
+    (*opt_input_data)[item.first].assign(opt_iter->second.begin(),
+                                         opt_iter->second.end());
+    (*min_input_data)[item.first].assign(item.second.begin(),
+                                         item.second.end());
+  }
+}
+
 void PaddleBackend::CollectShapeRun(
     paddle_infer::Predictor* predictor,
-    const std::map<std::string, std::vector<int>>& shape) const {
+    const std::map<std::string, std::vector<int>>& shape,
+    const std::map<std::string, std::vector<float>>& data) const {
   auto input_names = predictor->GetInputNames();
   auto input_type = predictor->GetInputTypes();
   for (const auto& name : input_names) {
@@ -418,21 +517,47 @@ void PaddleBackend::CollectShapeRun(
     int shape_num = std::accumulate(shape_value.begin(), shape_value.end(), 1,
                                     std::multiplies<int>());
     tensor->Reshape(shape_value);
+
+    if (data.find(name) != data.end()) {
+      FDASSERT(data.at(name).size() == shape_num,
+               "The data num and accumulate of shape must be equal for input: "
+               "[\"%s\"], "
+               " When Use the (C++)RuntimeOption.trt_option.SetInputData/ "
+               " (Python)RuntimeOption.trt_option.set_input_data/",
+               name.c_str());
+    }
+
     auto dtype = input_type[name];
     switch (dtype) {
       case paddle_infer::DataType::FLOAT32: {
-        std::vector<float> input_data(shape_num, 1.0);
-        tensor->CopyFromCpu(input_data.data());
+        if (data.find(name) != data.end()) {
+          tensor->CopyFromCpu(data.at(name).data());
+        } else {
+          std::vector<float> input_data(shape_num, 1.0);
+          tensor->CopyFromCpu(input_data.data());
+        }
         break;
       }
       case paddle_infer::DataType::INT32: {
-        std::vector<int> input_data(shape_num, 1);
-        tensor->CopyFromCpu(input_data.data());
+        if (data.find(name) != data.end()) {
+          std::vector<int> input_data(data.at(name).begin(),
+                                      data.at(name).end());
+          tensor->CopyFromCpu(input_data.data());
+        } else {
+          std::vector<int> input_data(shape_num, 1);
+          tensor->CopyFromCpu(input_data.data());
+        }
         break;
       }
       case paddle_infer::DataType::INT64: {
-        std::vector<int64_t> input_data(shape_num, 1);
-        tensor->CopyFromCpu(input_data.data());
+        if (data.find(name) != data.end()) {
+          std::vector<int64_t> input_data(data.at(name).begin(),
+                                          data.at(name).end());
+          tensor->CopyFromCpu(input_data.data());
+        } else {
+          std::vector<int64_t> input_data(shape_num, 1);
+          tensor->CopyFromCpu(input_data.data());
+        }
         break;
       }
       default: {

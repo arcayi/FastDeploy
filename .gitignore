@@ -43,6 +43,14 @@ examples/vision/tests_quantize
 fastdeploy/LICENSE
 fastdeploy/ThirdPartyNotices.txt
 FastDeployCSharp.cmake
+python/fastdeploy/code_version.py
+*.pdmodel
+*.pdiparams
+*.pdiparams.info
+log.txt
+serving/build
+serving/build.encrypt
+serving/build.encrypt.auth
 
 examples/vision/keypointdetection/tiny_pose/python/PP_TinyPose_256x192_infer.tgz
 build_mine/

@@ -104,7 +104,8 @@ if [ $WITH_GPU == "ON" ]; then
         rm -rf TensorRT-${trt_version}.Linux.x86_64-gnu.cuda-${cuda_version}.tar.gz
     fi
 
-    nvidia-docker run -i --rm --name ${docker_name} \
+    # nvidia-docker run -i --rm --name ${docker_name} \
+    docker run -i --rm --name ${docker_name} \
         -v $(pwd)/..:/workspace/fastdeploy \
         -e "http_proxy=${http_proxy}" \
         -e "https_proxy=${https_proxy}" \
@@ -116,7 +117,7 @@ if [ $WITH_GPU == "ON" ]; then
             sed -i -e "s|http\(s\)*:\(.*\)\/ubuntu|http:\/\/mirrors.ustc.edu.cn\/ubuntu|g" /etc/apt/sources.list
             echo "!!! build fastdeploy python"
             cd /workspace/fastdeploy/python;
-            # rm -rf .setuptools-cmake-build dist build fastdeploy/libs/third_libs;
+            rm -rf .setuptools-cmake-build dist build fastdeploy/libs/third_libs;
             apt-get update;
             apt-get install -y --no-install-recommends patchelf python3-dev python3-pip rapidjson-dev git;
             unset http_proxy

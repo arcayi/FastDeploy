@@ -110,7 +110,7 @@ if [ $WITH_GPU == "ON" ]; then
         -e "http_proxy=${http_proxy}" \
         -e "https_proxy=${https_proxy}" \
         -e "trt_version=${trt_version}" \
-        nvcr.io/nvidia/tritonserver:23.04-py3 \
+        nvcr.io/nvidia/tritonserver:23.05-py3 \
         bash -c \
         'export https_proxy_tmp=${https_proxy}
             export http_proxy_tmp=${http_proxy}
@@ -147,7 +147,7 @@ if [ $WITH_GPU == "ON" ]; then
             rm -rf build; mkdir build; cd build;
             export https_proxy=${https_proxy_tmp}
             export http_proxy=${http_proxy_tmp}
-            cmake .. -DFASTDEPLOY_DIR=/workspace/fastdeploy/build/fastdeploy_install -DTRITON_COMMON_REPO_TAG=r23.04 -DTRITON_CORE_REPO_TAG=r23.04 -DTRITON_BACKEND_REPO_TAG=r23.04;
+            cmake .. -DFASTDEPLOY_DIR=/workspace/fastdeploy/build/fastdeploy_install -DTRITON_COMMON_REPO_TAG=r23.05 -DTRITON_CORE_REPO_TAG=r23.05 -DTRITON_BACKEND_REPO_TAG=r23.05;
             make -j`nproc`'
 
     echo "build FD GPU library done"
@@ -160,7 +160,7 @@ else
         -v$(pwd)/..:/workspace/fastdeploy \
         -e "http_proxy=${http_proxy}" \
         -e "https_proxy=${https_proxy}" \
-        paddlepaddle/fastdeploy:23.04-cpu-only-buildbase \
+        paddlepaddle/fastdeploy:23.05-cpu-only-buildbase \
         bash -c \
         'export https_proxy_tmp=${https_proxy}
             export http_proxy_tmp=${http_proxy}
@@ -186,7 +186,7 @@ else
             rm -rf build; mkdir build; cd build;
             export https_proxy=${https_proxy_tmp}
             export http_proxy=${http_proxy_tmp}
-            cmake .. -DTRITON_ENABLE_GPU=OFF -DFASTDEPLOY_DIR=/workspace/fastdeploy/build/fastdeploy_install -DTRITON_COMMON_REPO_TAG=r23.04 -DTRITON_CORE_REPO_TAG=r23.04 -DTRITON_BACKEND_REPO_TAG=r23.04;
+            cmake .. -DTRITON_ENABLE_GPU=OFF -DFASTDEPLOY_DIR=/workspace/fastdeploy/build/fastdeploy_install -DTRITON_COMMON_REPO_TAG=r23.05 -DTRITON_CORE_REPO_TAG=r23.05 -DTRITON_BACKEND_REPO_TAG=r23.05;
             make -j`nproc`'
 
     echo "build FD CPU library done"

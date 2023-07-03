@@ -32,7 +32,7 @@ COPY --from=full /opt/tritonserver/backends/dali /opt/tritonserver/backends/dali
 
 ENV TZ=Asia/Shanghai \
     DEBIAN_FRONTEND=noninteractive \
-    DCGM_VERSION=3.1.8 \
+    DCGM_VERSION=1:2.4.7 \
     http_proxy=$http_proxy \
     https_proxy=$http_proxy
 
@@ -42,7 +42,7 @@ RUN apt-get update \
     && wget https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2204/x86_64/cuda-keyring_1.0-1_all.deb \
     && dpkg -i cuda-keyring_1.0-1_all.deb \
     && apt-key adv --fetch-keys https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2204/x86_64/7fa2af80.pub \
-    && apt-get update && apt-get install -y --no-install-recommends datacenter-gpu-manager=1:${DCGM_VERSION}
+    && apt-get update && apt-get install -y --no-install-recommends datacenter-gpu-manager=${DCGM_VERSION}
 
 RUN apt-get update \
     && apt-get install -y --no-install-recommends libre2-9 libb64-0d python3 python3-pip libarchive-dev ffmpeg libsm6 libxext6

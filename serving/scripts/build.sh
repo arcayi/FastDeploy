@@ -117,7 +117,7 @@ docker run -i --rm --gpus all --name ${docker_name} \
         sed -i -e "s|http\(s\)*:\(.*\)\/ubuntu|http:\/\/mirrors.ustc.edu.cn\/ubuntu|g" /etc/apt/sources.list
         echo "!!! build fastdeploy python"
         cd /workspace/fastdeploy/python;
-        rm -rf .setuptools-cmake-build dist build fastdeploy/libs/third_libs;
+        rm -rf .setuptools-cmake-build dist build fastdeploy/libs/third_libs fastdeploy/libs/*.so;
         apt-get update;
         apt-get install -y --no-install-recommends patchelf python3-dev python3-pip rapidjson-dev git;
         unset http_proxy

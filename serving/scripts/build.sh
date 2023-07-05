@@ -65,131 +65,90 @@ fi
 
 # cd /workspaces/sportai.py/FastDeploy/serving
 
-if [ $WITH_GPU == "ON" ]; then
-
-    if [ -z $trt_version ]; then
-        # The optional value of trt_version: ["8.4.1.5", "8.5.2.2"]
-        trt_version="8.6.1.6"
-    fi
-    if [ -z $cuda_version ]; then
-        cuda_version="12.0"
-    fi
-    # if [ -z $cudnn_version ]; then
-    #     cudnn_version="8.6"
-    # fi
-
-    # if [ $trt_version == "8.5.2.2" ]
-    # then
-    #     cudnn_version="11.8"
-    #     cudnn_version="8.6"
-    # else
-    #     cuda_version="11.6"
-    #     cudnn_version="8.4"
-    # fi
-
-    echo "start build FD GPU library"
-
-    if [ ! -d "./cmake-3.26.4-linux-x86_64/" ]; then
-        wget https://github.com/Kitware/CMake/releases/download/v3.26.4/cmake-3.26.4-Linux-x86_64.tar.gz
-        tar -zxvf cmake-3.26.4-Linux-x86_64.tar.gz
-        rm -rf cmake-3.26.4-Linux-x86_64.tar.gz
-    fi
-
-    if [ ! -d "./TensorRT-${trt_version}/" ]; then
-        # wget https://fastdeploy.bj.bcebos.com/resource/TensorRT/TensorRT-${trt_version}.Linux.x86_64-gnu.cuda-${cuda_version}.cudnn${cudnn_version}.tar.gz
-        # tar -zxvf TensorRT-${trt_version}.Linux.x86_64-gnu.cuda-${cuda_version}.cudnn${cudnn_version}.tar.gz
-        # rm -rf TensorRT-${trt_version}.Linux.x86_64-gnu.cuda-${cuda_version}.cudnn${cudnn_version}.tar.gz
-        wget https://developer.nvidia.com/downloads/compute/machine-learning/tensorrt/secure/${trt_version%.*}/tars/TensorRT-${trt_version}.Linux.x86_64-gnu.cuda-${cuda_version}.tar.gz
-        tar -zxvf TensorRT-${trt_version}.Linux.x86_64-gnu.cuda-${cuda_version}.tar.gz
-        rm -rf TensorRT-${trt_version}.Linux.x86_64-gnu.cuda-${cuda_version}.tar.gz
-    fi
-
-    # nvidia-docker run -i --rm --name ${docker_name} \
-    docker run -i --rm --name ${docker_name} \
-        -v $(pwd)/..:/workspace/fastdeploy \
-        -e "http_proxy=${http_proxy}" \
-        -e "https_proxy=${https_proxy}" \
-        -e "trt_version=${trt_version}" \
-        nvcr.io/nvidia/tritonserver:23.06-py3 \
-        bash -c \
-        'export https_proxy_tmp=${https_proxy}
-            export http_proxy_tmp=${http_proxy}
-            sed -i -e "s|http\(s\)*:\(.*\)\/ubuntu|http:\/\/mirrors.ustc.edu.cn\/ubuntu|g" /etc/apt/sources.list
-            echo "!!! build fastdeploy python"
-            cd /workspace/fastdeploy/python;
-            rm -rf .setuptools-cmake-build dist build fastdeploy/libs/third_libs;
-            apt-get update;
-            apt-get install -y --no-install-recommends patchelf python3-dev python3-pip rapidjson-dev git;
-            unset http_proxy
-            unset https_proxy
-            git config --global --add safe.directory /workspace/fastdeploy
-            ln -s /usr/bin/python3 /usr/bin/python;
-            export PATH=/workspace/fastdeploy/serving/cmake-3.26.4-linux-x86_64/bin:$PATH;
-            export WITH_GPU=ON;
-            export ENABLE_TRT_BACKEND=ON;
-            export TRT_DIRECTORY=/workspace/fastdeploy/serving/TensorRT-${trt_version}/;
-            export ENABLE_ORT_BACKEND=ON;
-            export ENABLE_PADDLE_BACKEND=ON;
-            export ENABLE_OPENVINO_BACKEND=OFF;
-            # export ENABLE_VISION=ON;
-            export ENABLE_VISION=OFF;
-            export ENABLE_TEXT=OFF;
-            python setup.py build;
-            python setup.py bdist_wheel;
-            echo "!!! build fastdeploy"
-            cd /workspace/fastdeploy;
-            rm -rf build; mkdir -p build;cd build;
-            # cmake .. -DWITH_GPU=ON  -DENABLE_TRT_BACKEND=ON -DCMAKE_INSTALL_PREFIX=${PWD}/fastdeploy_install -DTRT_DIRECTORY=/workspace/fastdeploy/serving/TensorRT-${trt_version}/ -DENABLE_ORT_BACKEND=ON -DENABLE_PADDLE_BACKEND=ON -DENABLE_OPENVINO_BACKEND=OFF -DENABLE_VISION=ON -DENABLE_TEXT=OFF -DBUILD_FASTDEPLOY_PYTHON=OFF -DENABLE_PADDLE2ONNX=ON -DLIBRARY_NAME=fastdeploy_runtime;
-            cmake .. -DCMAKE_INSTALL_PREFIX=${PWD}/fastdeploy_install -DBUILD_FASTDEPLOY_PYTHON=OFF -DENABLE_PADDLE2ONNX=ON -DLIBRARY_NAME=fastdeploy_runtime;
-            make -j`nproc`;
-            make install;
-            echo "!!! build fastdeploy serving"
-            cd /workspace/fastdeploy/serving;
-            rm -rf build; mkdir build; cd build;
-            export https_proxy=${https_proxy_tmp}
-            export http_proxy=${http_proxy_tmp}
-            cmake .. -DFASTDEPLOY_DIR=/workspace/fastdeploy/build/fastdeploy_install -DTRITON_COMMON_REPO_TAG=r23.06 -DTRITON_CORE_REPO_TAG=r23.06 -DTRITON_BACKEND_REPO_TAG=r23.06;
-            make -j`nproc`'
-
-    echo "build FD GPU library done"
-
-else
-
-    echo "start build FD CPU library"
-
-    docker run -i --rm --name ${docker_name} \
-        -v$(pwd)/..:/workspace/fastdeploy \
-        -e "http_proxy=${http_proxy}" \
-        -e "https_proxy=${https_proxy}" \
-        paddlepaddle/fastdeploy:23.06-cpu-only-buildbase \
-        bash -c \
-        'export https_proxy_tmp=${https_proxy}
-            export http_proxy_tmp=${http_proxy}
-            cd /workspace/fastdeploy/python;
-            rm -rf .setuptools-cmake-build dist build fastdeploy/libs/third_libs;
-            ln -s /usr/bin/python3 /usr/bin/python;
-            export WITH_GPU=OFF;
-            export ENABLE_ORT_BACKEND=OFF;
-            export ENABLE_PADDLE_BACKEND=OFF;
-            export ENABLE_OPENVINO_BACKEND=OFF;
-            export ENABLE_VISION=ON;
-            export ENABLE_TEXT=ON;
-            unset http_proxy
-            unset https_proxy
-            python setup.py build;
-            python setup.py bdist_wheel;
-            cd /workspace/fastdeploy;
-            rm -rf build; mkdir build; cd build;
-            cmake .. -DENABLE_TRT_BACKEND=OFF -DCMAKE_INSTALL_PREFIX=${PWD}/fastdeploy_install -DWITH_GPU=OFF -DENABLE_PADDLE_BACKEND=ON -DENABLE_ORT_BACKEND=ON -DENABLE_OPENVINO_BACKEND=ON -DENABLE_VISION=OFF -DBUILD_FASTDEPLOY_PYTHON=OFF -DENABLE_PADDLE2ONNX=ON -DENABLE_TEXT=OFF -DLIBRARY_NAME=fastdeploy_runtime;
-            make -j`nproc`;
-            make install;
-            cd /workspace/fastdeploy/serving;
-            rm -rf build; mkdir build; cd build;
-            export https_proxy=${https_proxy_tmp}
-            export http_proxy=${http_proxy_tmp}
-            cmake .. -DTRITON_ENABLE_GPU=OFF -DFASTDEPLOY_DIR=/workspace/fastdeploy/build/fastdeploy_install -DTRITON_COMMON_REPO_TAG=r23.06 -DTRITON_CORE_REPO_TAG=r23.06 -DTRITON_BACKEND_REPO_TAG=r23.06;
-            make -j`nproc`'
-
-    echo "build FD CPU library done"
-
+if [ -z $trt_version ]; then
+    # The optional value of trt_version: ["8.4.1.5", "8.5.2.2"]
+    trt_version="8.6.1.6"
 fi
+if [ -z $cuda_version ]; then
+    cuda_version="12.0"
+fi
+# if [ -z $cudnn_version ]; then
+#     cudnn_version="8.6"
+# fi
+
+# if [ $trt_version == "8.5.2.2" ]
+# then
+#     cudnn_version="11.8"
+#     cudnn_version="8.6"
+# else
+#     cuda_version="11.6"
+#     cudnn_version="8.4"
+# fi
+
+echo "start build FD GPU library"
+
+if [ ! -d "./cmake-3.26.4-linux-x86_64/" ]; then
+    wget https://github.com/Kitware/CMake/releases/download/v3.26.4/cmake-3.26.4-Linux-x86_64.tar.gz
+    tar -zxvf cmake-3.26.4-Linux-x86_64.tar.gz
+    rm -rf cmake-3.26.4-Linux-x86_64.tar.gz
+fi
+
+if [ ! -d "./TensorRT-${trt_version}/" ]; then
+    # wget https://fastdeploy.bj.bcebos.com/resource/TensorRT/TensorRT-${trt_version}.Linux.x86_64-gnu.cuda-${cuda_version}.cudnn${cudnn_version}.tar.gz
+    # tar -zxvf TensorRT-${trt_version}.Linux.x86_64-gnu.cuda-${cuda_version}.cudnn${cudnn_version}.tar.gz
+    # rm -rf TensorRT-${trt_version}.Linux.x86_64-gnu.cuda-${cuda_version}.cudnn${cudnn_version}.tar.gz
+    wget https://developer.nvidia.com/downloads/compute/machine-learning/tensorrt/secure/${trt_version%.*}/tars/TensorRT-${trt_version}.Linux.x86_64-gnu.cuda-${cuda_version}.tar.gz
+    tar -zxvf TensorRT-${trt_version}.Linux.x86_64-gnu.cuda-${cuda_version}.tar.gz
+    rm -rf TensorRT-${trt_version}.Linux.x86_64-gnu.cuda-${cuda_version}.tar.gz
+fi
+
+workspace_path="/data/Git_Repository/Projects_AI/sportai.py/FastDeploy/"
+
+# nvidia-docker run -i --rm --name ${docker_name} \
+docker run -i --rm --gpus all --name ${docker_name} \
+    -v ${workspace_path}:/workspace/fastdeploy \
+    -e "http_proxy=${http_proxy}" \
+    -e "https_proxy=${https_proxy}" \
+    -e "trt_version=${trt_version}" \
+    nvcr.io/nvidia/tritonserver:23.06-py3 \
+    bash -c \
+    'export https_proxy_tmp=${https_proxy}
+        export http_proxy_tmp=${http_proxy}
+        sed -i -e "s|http\(s\)*:\(.*\)\/ubuntu|http:\/\/mirrors.ustc.edu.cn\/ubuntu|g" /etc/apt/sources.list
+        echo "!!! build fastdeploy python"
+        cd /workspace/fastdeploy/python;
+        rm -rf .setuptools-cmake-build dist build fastdeploy/libs/third_libs;
+        apt-get update;
+        apt-get install -y --no-install-recommends patchelf python3-dev python3-pip rapidjson-dev git;
+        unset http_proxy
+        unset https_proxy
+        git config --global --add safe.directory /workspace/fastdeploy
+        ln -s /usr/bin/python3 /usr/bin/python;
+        export PATH=/workspace/fastdeploy/serving/cmake-3.26.4-linux-x86_64/bin:$PATH;
+        export WITH_GPU=ON;
+        export ENABLE_TRT_BACKEND=ON;
+        export TRT_DIRECTORY=/workspace/fastdeploy/serving/TensorRT-${trt_version}/;
+        export ENABLE_ORT_BACKEND=ON;
+        export ENABLE_PADDLE_BACKEND=ON;
+        export ENABLE_OPENVINO_BACKEND=OFF;
+        # export ENABLE_VISION=ON;
+        export ENABLE_VISION=OFF;
+        export ENABLE_TEXT=OFF;
+        python setup.py build;
+        python setup.py bdist_wheel;
+        echo "!!! build fastdeploy"
+        cd /workspace/fastdeploy;
+        rm -rf build; mkdir -p build;cd build;
+        # cmake .. -DWITH_GPU=ON  -DENABLE_TRT_BACKEND=ON -DCMAKE_INSTALL_PREFIX=${PWD}/fastdeploy_install -DTRT_DIRECTORY=/workspace/fastdeploy/serving/TensorRT-${trt_version}/ -DENABLE_ORT_BACKEND=ON -DENABLE_PADDLE_BACKEND=ON -DENABLE_OPENVINO_BACKEND=OFF -DENABLE_VISION=ON -DENABLE_TEXT=OFF -DBUILD_FASTDEPLOY_PYTHON=OFF -DENABLE_PADDLE2ONNX=ON -DLIBRARY_NAME=fastdeploy_runtime;
+        cmake .. -DCMAKE_INSTALL_PREFIX=${PWD}/fastdeploy_install -DBUILD_FASTDEPLOY_PYTHON=OFF -DENABLE_PADDLE2ONNX=ON -DLIBRARY_NAME=fastdeploy_runtime;
+        make -j`nproc`;
+        make install;
+        echo "!!! build fastdeploy serving"
+        cd /workspace/fastdeploy/serving;
+        rm -rf build; mkdir build; cd build;
+        export https_proxy=${https_proxy_tmp}
+        export http_proxy=${http_proxy_tmp}
+        cmake .. -DFASTDEPLOY_DIR=/workspace/fastdeploy/build/fastdeploy_install -DTRITON_COMMON_REPO_TAG=r23.06 -DTRITON_CORE_REPO_TAG=r23.06 -DTRITON_BACKEND_REPO_TAG=r23.06;
+        make -j`nproc`'
+
+echo "build FD GPU library done"

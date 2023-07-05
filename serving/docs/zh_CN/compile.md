@@ -46,7 +46,7 @@ http_proxy=http://192.168.1.10:8889 https_proxy=http://192.168.1.10:8889  ./scri
 
 # 退出到FastDeploy主目录，制作镜像
 cd ../
-docker build -t paddlepaddle/fastdeploy:1.0.7.1-gpu-cuda12.1-trt8.6-23.06 -f serving/Dockerfile_CUDA_12_1_1_TRT_8_6_1_6 .
+docker build -t paddlepaddle/fastdeploy:1.0.7.1-gpu-cuda12.1-trt8.6-23.05 -f serving/Dockerfile_CUDA_12_1_1_TRT_8_6_1_6 .
 ```
 
 ### 制作CPU镜像

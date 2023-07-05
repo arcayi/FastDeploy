@@ -15,8 +15,8 @@
 ARG http_proxy
 ARG https_proxy
 
-FROM nvcr.io/nvidia/tritonserver:23.06-py3 as full
-FROM nvcr.io/nvidia/tritonserver:23.06-py3-min
+FROM nvcr.io/nvidia/tritonserver:23.05-py3 as full
+FROM nvcr.io/nvidia/tritonserver:23.05-py3-min
 
 COPY --from=full /opt/tritonserver/bin/tritonserver /opt/tritonserver/bin/tritonserver
 COPY --from=full /opt/tritonserver/lib /opt/tritonserver/lib

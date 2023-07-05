@@ -139,8 +139,20 @@ docker run -i --rm --gpus all --name ${docker_name} \
         echo "!!! build fastdeploy"
         cd /workspace/fastdeploy;
         rm -rf build; mkdir -p build;cd build;
-        # cmake .. -DWITH_GPU=ON  -DENABLE_TRT_BACKEND=ON -DCMAKE_INSTALL_PREFIX=${PWD}/fastdeploy_install -DTRT_DIRECTORY=/workspace/fastdeploy/serving/TensorRT-${trt_version}/ -DENABLE_ORT_BACKEND=ON -DENABLE_PADDLE_BACKEND=ON -DENABLE_OPENVINO_BACKEND=OFF -DENABLE_VISION=ON -DENABLE_TEXT=OFF -DBUILD_FASTDEPLOY_PYTHON=OFF -DENABLE_PADDLE2ONNX=ON -DLIBRARY_NAME=fastdeploy_runtime;
-        cmake .. -DCMAKE_INSTALL_PREFIX=${PWD}/fastdeploy_install -DBUILD_FASTDEPLOY_PYTHON=OFF -DENABLE_PADDLE2ONNX=ON -DLIBRARY_NAME=fastdeploy_runtime;
+        cmake .. \
+            -D WITH_GPU=ON  \
+            -D ENABLE_TRT_BACKEND=ON \
+            -D CMAKE_INSTALL_PREFIX=${PWD}/fastdeploy_install \
+            -D TRT_DIRECTORY=/workspace/fastdeploy/serving/TensorRT-${trt_version}/ \
+            -D ENABLE_ORT_BACKEND=ON \
+            -D ENABLE_PADDLE_BACKEND=ON \
+            -D ENABLE_OPENVINO_BACKEND=OFF \
+            -D ENABLE_VISION=ON \
+            -D ENABLE_TEXT=OFF \
+            -D BUILD_FASTDEPLOY_PYTHON=OFF \
+            -D ENABLE_PADDLE2ONNX=ON \
+            -D LIBRARY_NAME=fastdeploy_runtime;
+        # cmake .. -DCMAKE_INSTALL_PREFIX=${PWD}/fastdeploy_install -DBUILD_FASTDEPLOY_PYTHON=OFF -DENABLE_PADDLE2ONNX=ON -DLIBRARY_NAME=fastdeploy_runtime;
         make -j`nproc`;
         make install;
         echo "!!! build fastdeploy serving"

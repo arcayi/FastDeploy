@@ -131,8 +131,8 @@ docker run -i --rm --gpus all --name ${docker_name} \
         export ENABLE_ORT_BACKEND=ON;
         export ENABLE_PADDLE_BACKEND=ON;
         export ENABLE_OPENVINO_BACKEND=OFF;
-        # export ENABLE_VISION=ON;
-        export ENABLE_VISION=OFF;
+        export ENABLE_VISION=ON;
+        # export ENABLE_VISION=OFF;
         export ENABLE_TEXT=OFF;
         python setup.py build;
         python setup.py bdist_wheel;

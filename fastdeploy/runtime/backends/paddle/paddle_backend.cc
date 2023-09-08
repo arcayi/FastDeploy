@@ -88,7 +88,8 @@ void PaddleBackend::BuildOption(const PaddleBackendOption& option) {
         config_.SetOptimCacheDir(opt_cache_dir);
       }
       config_.EnableTensorRtEngine(option.trt_option.max_workspace_size,
-                                   option.trt_option.max_batch_size, 3,
+                                   option.trt_option.max_batch_size, 
+                                   option.trt_min_subgraph_size,
                                    precision, use_static);
       SetTRTDynamicShapeToConfig(option);
       if (option_.enable_fixed_size_opt) {
@@ -225,7 +226,8 @@ bool PaddleBackend::InitFromPaddle(const std::string& model,
           use_static = true;
         }
         config_.EnableTensorRtEngine(option.trt_option.max_workspace_size,
-                                     option.trt_option.max_batch_size, 3,
+                                     option.trt_option.max_batch_size,
+                                     option.trt_min_subgraph_size,
                                      paddle_infer::PrecisionType::kInt8,
                                      use_static, false);
         SetTRTDynamicShapeToConfig(option);
@@ -255,6 +257,12 @@ bool PaddleBackend::InitFromPaddle(const std::string& model,
                                        params.c_str(), params.size());
       } else {
         analysis_config.SetModel(model, params);
+      }
+      if (option.collect_trt_shape_by_device) {
+        if (option.device == Device::GPU) {
+          analysis_config.EnableUseGpu(option.gpu_mem_init_size, option.device_id, 
+                                       paddle_infer::PrecisionType::kFloat32);
+        }
       }
       analysis_config.CollectShapeRangeInfo(shape_range_info);
       auto predictor_tmp = paddle_infer::CreatePredictor(analysis_config);
